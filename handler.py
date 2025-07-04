@@ -9,6 +9,8 @@ import requests
 import base64
 from io import BytesIO
 import websocket
+#import websockets
+from datetime import datetime
 import uuid
 import tempfile
 import socket
@@ -28,13 +30,15 @@ WEBSOCKET_RECONNECT_ATTEMPTS = int(os.environ.get("WEBSOCKET_RECONNECT_ATTEMPTS"
 WEBSOCKET_RECONNECT_DELAY_S = int(os.environ.get("WEBSOCKET_RECONNECT_DELAY_S", 3))
 
 # Extra verbose websocket trace logs (set WEBSOCKET_TRACE=true to enable)
-if os.environ.get("WEBSOCKET_TRACE", "false").lower() == "true":
+#if os.environ.get("WEBSOCKET_TRACE", "false").lower() == "true":
     # This prints low-level frame information to stdout which is invaluable for diagnosing
     # protocol errors but can be noisy in production – therefore gated behind an env-var.
-    websocket.enableTrace(True)
+    #websocket.enableTrace(True)
 
 # Host where ComfyUI is running
 COMFY_HOST = "127.0.0.1:8188"
+COMFY_HOST = "136.59.129.136:34955"
+
 # Enforce a clean state after each job is done
 # see https://docs.runpod.io/docs/handler-additional-controls#refresh-worker
 REFRESH_WORKER = os.environ.get("REFRESH_WORKER", "false").lower() == "true"
@@ -56,8 +60,10 @@ def _comfy_server_status():
         return {"reachable": False, "error": str(exc)}
 
 
+""" 
+
 def _attempt_websocket_reconnect(ws_url, max_attempts, delay_s, initial_error):
-    """
+    
     Attempts to reconnect to the WebSocket server after a disconnect.
 
     Args:
@@ -71,7 +77,7 @@ def _attempt_websocket_reconnect(ws_url, max_attempts, delay_s, initial_error):
 
     Raises:
         websocket.WebSocketConnectionClosedException: If reconnection fails after all attempts.
-    """
+   
     print(
         f"worker-comfyui - Websocket connection closed unexpectedly: {initial_error}. Attempting to reconnect..."
     )
@@ -125,6 +131,8 @@ def _attempt_websocket_reconnect(ws_url, max_attempts, delay_s, initial_error):
     raise websocket.WebSocketConnectionClosedException(
         f"Connection closed and failed to reconnect. Last error: {last_reconnect_error}"
     )
+
+ """
 
 
 def validate_input(job_input):
@@ -524,8 +532,220 @@ def handler(job):
     errors = []
 
     try:
+        queued_workflow = queue_workflow(workflow, client_id)
+        prompt_id = queued_workflow.get("prompt_id")
+        if not prompt_id:
+            raise ValueError(
+                f"Missing 'prompt_id' in queue response: {queued_workflow}"
+            )
+        print(f"worker-comfyui - Queued workflow with ID: {prompt_id}")
+    except requests.RequestException as e:
+        print(f"worker-comfyui - Error queuing workflow: {e}")
+        raise ValueError(f"Error queuing workflow: {e}")
+    except Exception as e:
+        print(f"worker-comfyui - Unexpected error queuing workflow: {e}")
+        # For ValueError exceptions from queue_workflow, pass through the original message
+        if isinstance(e, ValueError):
+            raise e
+        else:
+            raise ValueError(f"Unexpected error queuing workflow: {e}")
+
+    try:
         # Establish WebSocket connection
         ws_url = f"ws://{COMFY_HOST}/ws?clientId={client_id}"
+
+        print(f"worker-comfyui - Connecting to websocket: {ws_url}")
+        ws = websocket.WebSocket()
+        ws.connect(ws_url, timeout=10)
+        print(f"worker-comfyui - Websocket connected")
+        execution_done = False
+        while True:
+            try:
+                out = ws.recv()
+                if isinstance(out, str):
+                    message = json.loads(out)
+                    print(message)
+                    data = message.get("data", {})
+
+
+                    if data.get("prompt_id") == prompt_id:
+
+                        if (data.get("node") is None and message.get("type") == "executing" ):
+                            print(f"worker-comfyui - Execution finished for prompt {prompt_id}")
+                            execution_done = True
+
+                            break
+                        if data.get("node") == "27":
+                            progress =  data.get("value")
+                            print(f"worker-comfyui - Progress update: {progress}%")
+                            runpod.serverless.progress_update(job, f"Progress: {progress}")
+
+            except websocket.WebSocketTimeoutException:
+                print(f"worker-comfyui - Websocket receive timed out. Still waiting...")
+                continue
+            except json.JSONDecodeError:
+                print(f"worker-comfyui - Received invalid JSON message via websocket.")
+
+        # Fetch history even if there were execution errors, some outputs might exist
+        print(f"worker-comfyui - Fetching history for prompt {prompt_id}...")
+        history = get_history(prompt_id)
+
+        if prompt_id not in history:
+            error_msg = f"Prompt ID {prompt_id} not found in history after execution."
+            print(f"worker-comfyui - {error_msg}")
+            if not errors:
+                return {"error": error_msg}
+            else:
+                errors.append(error_msg)
+                return {
+                            "error": "Job processing failed, prompt ID not found in history.",
+                            "details": errors,
+                        }
+
+        prompt_history = history.get(prompt_id, {})
+        outputs = prompt_history.get("outputs", {})
+        print(outputs)
+        """
+        {'30': {'gifs': [{'filename': 'AnimateDiff_00003.gif', 'subfolder': '', 'type': 'output', 'format': 'image/gif', 'frame_rate': 8.0, 'workflow': 'AnimateDiff_00003.png', 'fullpath': '/workspace/ComfyUI/output/AnimateDiff_00003.gif'}]}, '68': {'text': ['13x480x832']}}
+        """
+
+        if not outputs:
+            warning_msg = f"No outputs found in history for prompt {prompt_id}."
+            print(f"worker-comfyui - {warning_msg}")
+            if not errors:
+                errors.append(warning_msg)
+
+        print(f"worker-comfyui - Processing {len(outputs)} output nodes...")
+        for node_id, node_output in outputs.items():
+            if "gifs" in node_output:
+                print(
+                    f"worker-comfyui - Node {node_id} contains {len(node_output['gifs'])} image(s)"
+                )
+                for image_info in node_output["gifs"]:
+                    filename = image_info.get("filename")
+                    subfolder = image_info.get("subfolder", "")
+                    img_type = image_info.get("type")
+
+                    # skip temp images
+                    if img_type == "temp":
+                        print(
+                            f"worker-comfyui - Skipping image {filename} because type is 'temp'"
+                        )
+                        continue
+
+                    if not filename:
+                        warn_msg = f"Skipping image in node {node_id} due to missing filename: {image_info}"
+                        print(f"worker-comfyui - {warn_msg}")
+                        errors.append(warn_msg)
+                        continue
+
+                    image_bytes = get_image_data(filename, subfolder, img_type)
+
+                    if image_bytes:
+                        file_extension = os.path.splitext(filename)[1] or ".png"
+
+                        if os.environ.get("BUCKET_ENDPOINT_URL"):
+                            try:
+                                with tempfile.NamedTemporaryFile(
+                                        suffix=file_extension, delete=False
+                                ) as temp_file:
+                                    temp_file.write(image_bytes)
+                                    temp_file_path = temp_file.name
+                                print(
+                                    f"worker-comfyui - Wrote image bytes to temporary file: {temp_file_path}"
+                                )
+
+                                print(f"worker-comfyui - Uploading {filename} to S3...")
+                                s3_url = rp_upload.upload_image(job_id, temp_file_path)
+                                os.remove(temp_file_path)  # Clean up temp file
+                                print(
+                                    f"worker-comfyui - Uploaded {filename} to S3: {s3_url}"
+                                )
+                                # Append dictionary with filename and URL
+                                output_data.append(
+                                    {
+                                        "filename": filename,
+                                        "type": "s3_url",
+                                        "data": s3_url,
+                                    }
+                                )
+                            except Exception as e:
+                                error_msg = f"Error uploading {filename} to S3: {e}"
+                                print(f"worker-comfyui - {error_msg}")
+                                errors.append(error_msg)
+                                if "temp_file_path" in locals() and os.path.exists(
+                                        temp_file_path
+                                ):
+                                    try:
+                                        os.remove(temp_file_path)
+                                    except OSError as rm_err:
+                                        print(
+                                            f"worker-comfyui - Error removing temp file {temp_file_path}: {rm_err}"
+                                        )
+                        else:
+                            # Return as base64 string
+                            try:
+                                base64_image = base64.b64encode(image_bytes).decode(
+                                    "utf-8"
+                                )
+                                # Append dictionary with filename and base64 data
+                                output_data.append(
+                                    {
+                                        "filename": filename,
+                                        "type": "base64",
+                                        "data": base64_image,
+                                    }
+                                )
+                                print(f"worker-comfyui - Encoded {filename} as base64")
+                            except Exception as e:
+                                error_msg = f"Error encoding {filename} to base64: {e}"
+                                print(f"worker-comfyui - {error_msg}")
+                                errors.append(error_msg)
+                    else:
+                        error_msg = f"Failed to fetch image data for {filename} from /view endpoint."
+                        errors.append(error_msg)
+
+                        # Check for other output types
+                    other_keys = [k for k in node_output.keys() if k != "images"]
+                    if other_keys:
+                        warn_msg = (
+                            f"Node {node_id} produced unhandled output keys: {other_keys}."
+                        )
+                        print(f"worker-comfyui - WARNING: {warn_msg}")
+                        print(
+                            f"worker-comfyui - --> If this output is useful, please consider opening an issue on GitHub to discuss adding support."
+                        )
+
+    except websocket.WebSocketException as e:
+        print(f"worker-comfyui - WebSocket Error: {e}")
+        print(traceback.format_exc())
+        return {"error": f"WebSocket communication error: {e}"}
+    except requests.RequestException as e:
+        print(f"worker-comfyui - HTTP Request Error: {e}")
+        print(traceback.format_exc())
+        return {"error": f"HTTP communication error with ComfyUI: {e}"}
+    except ValueError as e:
+        print(f"worker-comfyui - Value Error: {e}")
+        print(traceback.format_exc())
+        return {"error": str(e)}
+    except Exception as e:
+        print(f"worker-comfyui - Unexpected Handler Error: {e}")
+        print(traceback.format_exc())
+        return {"error": f"An unexpected error occurred: {e}"}
+    finally:
+        if ws and ws.connected:
+            print(f"worker-comfyui - Closing websocket connection.")
+            ws.close()
+
+
+
+
+
+    """
+    try:
+        # Establish WebSocket connection
+        ws_url = f"ws://{COMFY_HOST}/ws?clientId={client_id}"
+
         print(f"worker-comfyui - Connecting to websocket: {ws_url}")
         ws = websocket.WebSocket()
         ws.connect(ws_url, timeout=10)
@@ -765,6 +985,8 @@ def handler(job):
             print(f"worker-comfyui - Closing websocket connection.")
             ws.close()
 
+    """
+
     final_result = {}
 
     if output_data:
@@ -794,3 +1016,4 @@ def handler(job):
 if __name__ == "__main__":
     print("worker-comfyui - Starting handler...")
     runpod.serverless.start({"handler": handler})
+    #get_image_data("AnimateDiff_00004.gif", "", "output")

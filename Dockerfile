@@ -55,8 +55,12 @@ WORKDIR /
 # Install Python runtime dependencies for the handler
 RUN uv pip install runpod requests websocket-client
 
+
+
+
+
 # Add application code and scripts
-ADD src/start.sh handler.py test_input.json ./
+ADD src/start.sh handler.py test_input.json  civita_config  download_civita.py ./
 RUN chmod +x /start.sh
 
 # Add script to install custom nodes
@@ -78,45 +82,59 @@ FROM base AS downloader
 
 ARG HUGGINGFACE_ACCESS_TOKEN
 # Set default model type if none is provided
-ARG MODEL_TYPE=flux1-dev-fp8
+ARG MODEL_TYPE=wan
 
 # Change working directory to ComfyUI
 WORKDIR /comfyui
 
+
+
+
+
 # Create necessary directories upfront
-RUN mkdir -p models/checkpoints models/vae models/unet models/clip
+RUN mkdir -p models/checkpoints models/vae models/unet models/clip models/diffusion_models/WanVideo  models/vae/wanvideo
+
+
+
 
 # Download checkpoints/vae/unet/clip models to include in image based on model type
-RUN if [ "$MODEL_TYPE" = "sdxl" ]; then \
-      wget -q -O models/checkpoints/sd_xl_base_1.0.safetensors https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors && \
-      wget -q -O models/vae/sdxl_vae.safetensors https://huggingface.co/stabilityai/sdxl-vae/resolve/main/sdxl_vae.safetensors && \
-      wget -q -O models/vae/sdxl-vae-fp16-fix.safetensors https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/resolve/main/sdxl_vae.safetensors; \
+RUN if [ "$MODEL_TYPE" = "wan" ]; then \
+      wget -q -O models/vae/wanvideo/Wan2_1_VAE_bf16.safetensors https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1_VAE_bf16.safetensors && \
+      wget -q -O models/clip/umt5_xxl_fp16.safetensors https://huggingface.co/Comfy-Org/Wan_2.1_/workspace/ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp16.safetensors && \
+      wget -q -O models/text_encoders/umt5-xxl-enc-bf16.safetensors https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/umt5-xxl-enc-bf16.safetensors && \
+      wget -q -O models/clip/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors && \
+      wget -q -O models/diffusion_models/WanVideo/Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors ; \
     fi
 
-RUN if [ "$MODEL_TYPE" = "sd3" ]; then \
-      wget -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/checkpoints/sd3_medium_incl_clips_t5xxlfp8.safetensors https://huggingface.co/stabilityai/stable-diffusion-3-medium/resolve/main/sd3_medium_incl_clips_t5xxlfp8.safetensors; \
-    fi
-
-RUN if [ "$MODEL_TYPE" = "flux1-schnell" ]; then \
-      wget -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/unet/flux1-schnell.safetensors https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors && \
-      wget -q -O models/clip/clip_l.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors && \
-      wget -q -O models/clip/t5xxl_fp8_e4m3fn.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors && \
-      wget -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/vae/ae.safetensors https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors; \
-    fi
-
-RUN if [ "$MODEL_TYPE" = "flux1-dev" ]; then \
-      wget -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/unet/flux1-dev.safetensors https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/flux1-dev.safetensors && \
-      wget -q -O models/clip/clip_l.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors && \
-      wget -q -O models/clip/t5xxl_fp8_e4m3fn.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors && \
-      wget -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/vae/ae.safetensors https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors; \
-    fi
-
-RUN if [ "$MODEL_TYPE" = "flux1-dev-fp8" ]; then \
-      wget -q -O models/checkpoints/flux1-dev-fp8.safetensors https://huggingface.co/Comfy-Org/flux1-dev/resolve/main/flux1-dev-fp8.safetensors; \
-    fi
+RUN python /download_civita.py "https://civitai.com/api/download/models/1475095" "/comfyui/models/loras/"
+RUN python /download_civita.py "https://civitai.com/api/download/models/1517164" "/comfyui/models/loras/"
 
 # Stage 3: Final image
 FROM base AS final
 
 # Copy models from stage 2 to the final image
 COPY --from=downloader /comfyui/models /comfyui/models
+
+
+
+# Install ComfyUI dependencies
+RUN cd /comfyui/custom_nodes/ \
+    && git clone https://github.com/kijai/ComfyUI-WanVideoWrapper \
+    && git clone https://github.com/kijai/ComfyUI-KJNodes \
+    && git clone https://github.com/aria1th/ComfyUI-LogicUtils \
+    && git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite \
+    && git clone https://github.com/cubiq/ComfyUI_essentials
+#
+RUN cd /comfyui/custom_nodes/ComfyUI-WanVideoWrapper \
+    && pip3 install -r requirements.txt \
+    && cd /comfyui/custom_nodes/ComfyUI-KJNodes\
+    && pip3 install -r requirements.txt \
+    && cd /comfyui/custom_nodes/ComfyUI-LogicUtils  \
+    && pip3 install -r requirements.txt \
+    && cd /comfyui/custom_nodes/ComfyUI-VideoHelperSuite \
+    && pip3 install -r requirements.txt \
+    && cd /comfyui/custom_nodes/ComfyUI_essentials \
+    && pip3 install -r requirements.txt \
+    &&  cd /comfyui \
+    && rm -fr /root/.cache/pip
+
