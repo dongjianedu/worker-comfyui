@@ -98,7 +98,11 @@ RUN mkdir -p models/checkpoints models/vae models/unet models/clip models/diffus
 
 
 # Download checkpoints/vae/unet/clip models to include in image based on model type
-RUN  wget  "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1_VAE_bf16.safetensors" -O "/comfyui/models/vae/wanvideo/Wan2_1_VAE_bf16.safetensors"   --no-check-certificate
+RUN  wget  "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1_VAE_bf16.safetensors" -O "/comfyui/models/vae/wanvideo/Wan2_1_VAE_bf16.safetensors"   --no-check-certificate \
+    && wget  "https://huggingface.co/Comfy-Org/Wan_2.1_/workspace/ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp16.safetensors" -O "/comfyui/models/clip/umt5_xxl_fp16.safetensors" --no-check-certificate \
+    && wget  "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/umt5-xxl-enc-bf16.safetensors" -O "/comfyui/models/text_encoders/umt5-xxl-enc-bf16.safetensors" --no-check-certificate \
+    && wget  "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors" -O "/comfyui/models/clip/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors" --no-check-certificate \
+    && wget  "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors" -O "/comfyui/models/diffusion_models/WanVideo/Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors" --no-check-certificate
 
 
 
@@ -125,12 +129,9 @@ RUN cd /comfyui/custom_nodes/ComfyUI-WanVideoWrapper \
     && pip3 install -r requirements.txt \
     && cd /comfyui/custom_nodes/ComfyUI-KJNodes\
     && pip3 install -r requirements.txt \
-    && cd /comfyui/custom_nodes/ComfyUI-LogicUtils  \
-    && pip3 install -r requirements.txt \
     && cd /comfyui/custom_nodes/ComfyUI-VideoHelperSuite \
     && pip3 install -r requirements.txt \
     && cd /comfyui/custom_nodes/ComfyUI_essentials \
     && pip3 install -r requirements.txt \
-    &&  cd /comfyui \
     && rm -fr /root/.cache/pip
 
