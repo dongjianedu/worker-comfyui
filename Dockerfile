@@ -80,7 +80,7 @@ CMD ["/start.sh"]
 # Stage 2: Download models
 FROM base AS downloader
 
-ARG HUGGINGFACE_ACCESS_TOKEN
+ARG HUGGINGFACE_ACCESS_TOKEN=123
 # Set default model type if none is provided
 ARG MODEL_TYPE=wan
 
