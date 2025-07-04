@@ -99,11 +99,11 @@ RUN mkdir -p models/checkpoints models/vae models/unet models/clip models/diffus
 
 # Download checkpoints/vae/unet/clip models to include in image based on model type
 RUN if [ "$MODEL_TYPE" = "wan" ]; then \
-      wget https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1_VAE_bf16.safetensors -O models/vae/wanvideo/Wan2_1_VAE_bf16.safetensors  --no-check-certificate && \
-      wget https://huggingface.co/Comfy-Org/Wan_2.1_/workspace/ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp16.safetensors -O models/clip/umt5_xxl_fp16.safetensors  --no-check-certificate && \
-      wget https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/umt5-xxl-enc-bf16.safetensors -O models/text_encoders/umt5-xxl-enc-bf16.safetensors  --no-check-certificate && \
-      wget https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors -O models/clip/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors   --no-check-certificate && \
-      wget https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors -O models/diffusion_models/WanVideo/Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors  --no-check-certificate;  \
+      wget  -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/vae/wanvideo/Wan2_1_VAE_bf16.safetensors  https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1_VAE_bf16.safetensors && \
+      wget  -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/clip/umt5_xxl_fp16.safetensors  https://huggingface.co/Comfy-Org/Wan_2.1_/workspace/ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp16.safetensors && \
+      wget  -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/text_encoders/umt5-xxl-enc-bf16.safetensors  https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/umt5-xxl-enc-bf16.safetensors && \
+      wget  -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/clip/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors   https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors  && \
+      wget  -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/diffusion_models/WanVideo/Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors  https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors;  \
     fi
 
 RUN python /download_civita.py "https://civitai.com/api/download/models/1475095" "/comfyui/models/loras/"
