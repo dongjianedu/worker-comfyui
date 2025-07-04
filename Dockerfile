@@ -98,7 +98,7 @@ RUN mkdir -p models/checkpoints models/vae models/unet models/clip models/diffus
 
 
 # Download checkpoints/vae/unet/clip models to include in image based on model type
-RUN  wget   --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O /comfyui/models/vae/wanvideo/Wan2_1_VAE_bf16.safetensors  https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1_VAE_bf16.safetensors;
+RUN  wget   --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O /comfyui/models/vae/wanvideo/Wan2_1_VAE_bf16.safetensors  https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1_VAE_bf16.safetensors
 
 
 
