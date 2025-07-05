@@ -37,7 +37,7 @@ WEBSOCKET_RECONNECT_DELAY_S = int(os.environ.get("WEBSOCKET_RECONNECT_DELAY_S", 
 
 # Host where ComfyUI is running
 COMFY_HOST = "127.0.0.1:8188"
-COMFY_HOST = "136.59.129.136:34955"
+#COMFY_HOST = "136.59.129.136:34955"
 
 # Enforce a clean state after each job is done
 # see https://docs.runpod.io/docs/handler-additional-controls#refresh-worker
