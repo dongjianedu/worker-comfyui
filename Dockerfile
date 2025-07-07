@@ -35,7 +35,7 @@ WORKDIR /comfyui
 # Create necessary directories upfront
 RUN mkdir -p models/checkpoints models/vae models/unet models/clip models/diffusion_models/WanVideo  models/vae/wanvideo
 
-RUN comfy-node-install ComfyUI-WanVideoWrapper ComfyUI-KJNodes ComfyUI-LogicUtils ComfyUI-VideoHelperSuite ComfyUI_essentials
+RUN comfy-node-install ComfyUI-WanVideoWrapper comfyui-kjnodes comfyui-logicutils comfyui-videohelpersuite comfyui_essentials
 
 
 # download models
