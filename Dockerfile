@@ -1,6 +1,25 @@
 # start from a clean base image (replace <version> with the desired release)
 FROM runpod/worker-comfyui:5.1.0-base
+
+# Install Python, git and other necessary tools
+RUN apt-get update && apt-get install -y \
+    python3.12 \
+    python3.12-venv \
+    git \
+    wget \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    ffmpeg \
+    && ln -sf /usr/bin/python3.12 /usr/bin/python \
+    && ln -sf /usr/bin/pip3 /usr/bin/pip
+
+
 WORKDIR /
+
+
 
 # Add application code and scripts
 ADD src/start.sh handler.py test_input.json  civita_config  download_civita.py ./
