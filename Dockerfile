@@ -45,8 +45,7 @@ RUN  wget  "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/
 RUN  wget  "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/umt5-xxl-enc-bf16.safetensors" -O "/comfyui/models/text_encoders/umt5-xxl-enc-bf16.safetensors" --no-check-certificate
 RUN  wget  "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors" -O "/comfyui/models/clip/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors" --no-check-certificate
 RUN  wget  "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors" -O "/comfyui/models/diffusion_models/WanVideo/Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors" --no-check-certificate
-
-
+RUN  wget  "https://huggingface.co/Comfy-Org/flux1-dev/resolve/main/flux1-dev-fp8.safetensors" -O "/comfyui/models/checkpoints/flux1-dev-fp8.safetensors" --no-check-certificate
 
 RUN python /download_civita.py "https://civitai.com/api/download/models/1475095" "/comfyui/models/loras/"
 RUN python /download_civita.py "https://civitai.com/api/download/models/1517164" "/comfyui/models/loras/"
