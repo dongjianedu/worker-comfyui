@@ -34,6 +34,6 @@ RUN python /download_civita.py "https://civitai.com/api/download/models/1517164"
 
 # Copy local static input files into the ComfyUI input directory (delete if not needed)
 # Assumes you have an 'input' folder next to your Dockerfile
-COPY input/ /comfyui/input/
+#COPY input/ /comfyui/input/
 
 
