@@ -52,7 +52,7 @@ RUN /usr/bin/yes | comfy --workspace /comfyui install --version 0.3.30 --cuda-ve
 WORKDIR /
 
 # Install Python runtime dependencies for the handler
-RUN uv pip install runpod requests websocket-client
+RUN uv pip install runpod==1.7.9 requests websocket-client
 
 # Add application code and scripts
 ADD src/start.sh handler.py test_input.json  civita_config  download_civita.py ./
