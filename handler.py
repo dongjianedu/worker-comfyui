@@ -567,7 +567,7 @@ def handler(job):
                     print(message)
                     data = message.get("data", {})
 
-
+                    runpod.serverless.progress_update(job, f"message: {data}")
                     if data.get("prompt_id") == prompt_id:
 
                         if (data.get("node") is None and message.get("type") == "executing" ):
