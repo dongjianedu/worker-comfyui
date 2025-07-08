@@ -9,4 +9,3 @@ RUN  wget  "https://huggingface.co/Comfy-Org/flux1-dev/resolve/main/flux1-dev-fp
 
 # Copy local static input files into the ComfyUI input directory (delete if not needed)
 # Assumes you have an 'input' folder next to your Dockerfile
-COPY input/ /comfyui/input/
