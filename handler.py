@@ -493,6 +493,7 @@ def handler(job):
     Returns:
         dict: A dictionary containing either an error message or a success status with generated images.
     """
+    runpod.serverless.progress_update(job, "beginning job processing")
     job_input = job["input"]
     job_id = job["id"]
 
@@ -506,6 +507,7 @@ def handler(job):
     input_images = validated_data.get("images")
 
     # Make sure that the ComfyUI HTTP API is available before proceeding
+    runpod.serverless.progress_update(job, "beginning check for ComfyUI server availability")
     if not check_server(
         f"http://{COMFY_HOST}/",
         COMFY_API_AVAILABLE_MAX_RETRIES,
@@ -514,9 +516,10 @@ def handler(job):
         return {
             "error": f"ComfyUI server ({COMFY_HOST}) not reachable after multiple retries."
         }
-
+    runpod.serverless.progress_update(job, "after check for ComfyUI server availability")
     # Upload input images if they exist
     if input_images:
+        runpod.serverless.progress_update(job, "begin uploading input images")
         upload_result = upload_images(input_images)
         if upload_result["status"] == "error":
             # Return upload errors
@@ -524,7 +527,7 @@ def handler(job):
                 "error": "Failed to upload one or more input images",
                 "details": upload_result["details"],
             }
-
+    runpod.serverless.progress_update(job, "after uploading input images")
     ws = None
     client_id = str(uuid.uuid4())
     prompt_id = None
@@ -532,6 +535,7 @@ def handler(job):
     errors = []
 
     try:
+        runpod.serverless.progress_update(job, "begin commit workflow to ComfyUI")
         queued_workflow = queue_workflow(workflow, client_id)
         prompt_id = queued_workflow.get("prompt_id")
         if not prompt_id:
@@ -559,6 +563,7 @@ def handler(job):
         ws.connect(ws_url, timeout=10)
         print(f"worker-comfyui - Websocket connected")
         execution_done = False
+        runpod.serverless.progress_update(job, "begin listening for websocket messages")
         while True:
             try:
                 out = ws.recv()
@@ -572,6 +577,7 @@ def handler(job):
 
                         if (data.get("node") is None and message.get("type") == "executing" ):
                             print(f"worker-comfyui - Execution finished for prompt {prompt_id}")
+                            runpod.serverless.progress_update(job, "finished job processing")
                             execution_done = True
 
                             break
